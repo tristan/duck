@@ -1,0 +1,22 @@
+[package]
+name = "duck-wgpu"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bytemuck = { version = "1.13.1", features = ["derive"] }
+cgmath = "0.18.0"
+env_logger = "0.10.0"
+font-kit = "0.11.0"
+guillotiere = "0.6.2"
+image = "0.24.6"
+log = "0.4.18"
+nalgebra = "0.32.2"
+pollster = "0.3.0"
+ropey = "1.6.0"
+swash = "0.1.8"
+unicode-properties = { git = "https://github.com/unicode-rs/unicode-properties.git", version = "0.1.0" }
+wgpu = "0.16.1"
+winit = "0.28.6"

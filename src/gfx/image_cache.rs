@@ -45,7 +45,7 @@ impl ImageCache {
                 }
             }
             let atlas_index = self.atlases.len();
-            let atlas = Atlas::new(wgpu, self.max_texture_size, TextureFormat::Rgba8UnormSrgb);
+            let atlas = Atlas::new(wgpu, self.max_texture_size, TextureFormat::Rgba8Unorm);
             self.atlases.push(atlas);
             let atlas = self.atlases.last_mut().unwrap();
             if let Some((x, y)) = atlas.allocate(width, height, data) {

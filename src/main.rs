@@ -67,7 +67,7 @@ fn main() {
     compositor.begin();
     let subpx_bias = (0.125, 0.);
     let screen_size = window.inner_size();
-    let margin = 25.;
+    let margin = 12.;
     let buffer_window = Rect::new(
         margin,
         margin,

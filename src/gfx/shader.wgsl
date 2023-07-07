@@ -29,6 +29,42 @@ fn vs_main(
     return out;
 }
 
+@vertex
+fn subpixel_r_vs_main(
+    model: VertexInput,
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.color = model.color;
+    out.uv = model.uv;
+    out.use_tex = model.pos.w;
+    out.clip_position = camera.view_proj * vec4<f32>(model.pos.xy, 0.3, 1.0);
+    return out;
+}
+
+@vertex
+fn subpixel_g_vs_main(
+    model: VertexInput,
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.color = model.color;
+    out.uv = model.uv;
+    out.use_tex = model.pos.w;
+    out.clip_position = camera.view_proj * vec4<f32>(model.pos.xy, 0.2, 1.0);
+    return out;
+}
+
+@vertex
+fn subpixel_b_vs_main(
+    model: VertexInput,
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.color = model.color;
+    out.uv = model.uv;
+    out.use_tex = model.pos.w;
+    out.clip_position = camera.view_proj * vec4<f32>(model.pos.xy, 0.1, 1.0);
+    return out;
+}
+
 @group(1) @binding(0)
 var t_diffuse: texture_2d<f32>;
 @group(1) @binding(1)
@@ -45,14 +81,33 @@ fn transparent_fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 }
 
 @fragment
-fn subpixel_fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+fn subpixel_r_fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	let color = in.color;
     let mask = textureSample(t_diffuse, s_diffuse, in.uv);
 	let alpha = gamma_correct_subpx(color, mask);
-	// TODO: this feels a bit too generic, but since we don't have Dual Source Blending (at the time of writing) i'm not sure if there's a better way to do this.
-	let a = (mask.r + mask.g + mask.b) / 3.;
-	let rgb = color.rgb * alpha.rgb;
-	return vec4<f32>(rgb, a);
+	let a = alpha.r;
+	let rgb = color.rgb; // * alpha.rgb;
+	return vec4<f32>(rgb.r, 0.0, 0.0, a);
+}
+
+@fragment
+fn subpixel_g_fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+	let color = in.color;
+    let mask = textureSample(t_diffuse, s_diffuse, in.uv);
+	let alpha = gamma_correct_subpx(color, mask);
+	let a = alpha.g;
+	let rgb = color.rgb; // * alpha.rgb;
+	return vec4<f32>(0.0, rgb.g, 0.0, a);
+}
+
+@fragment
+fn subpixel_b_fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+	let color = in.color;
+    let mask = textureSample(t_diffuse, s_diffuse, in.uv);
+	let alpha = gamma_correct_subpx(color, mask);
+	let a = alpha.b;
+	let rgb = color.rgb; // * alpha.rgb;
+	return vec4<f32>(0.0, 0.0, rgb.b, a);
 }
 
 fn gamma_correct_subpx(color: vec4<f32>, mask: vec4<f32>) -> vec4<f32> {

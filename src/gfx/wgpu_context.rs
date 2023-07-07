@@ -23,7 +23,9 @@ pub struct WgpuContext {
     pub render_pipeline_layout: wgpu::PipelineLayout,
     pub opaque_render_pipeline: wgpu::RenderPipeline,
     pub transparent_render_pipeline: wgpu::RenderPipeline,
-    pub subpixel_render_pipeline: wgpu::RenderPipeline,
+    pub subpixel_r_render_pipeline: wgpu::RenderPipeline,
+    pub subpixel_g_render_pipeline: wgpu::RenderPipeline,
+    pub subpixel_b_render_pipeline: wgpu::RenderPipeline,
 
     pub camera_uniform: CameraUniform,
     pub camera_buffer: wgpu::Buffer,
@@ -210,22 +212,68 @@ impl WgpuContext {
                 multisample: multisample_state,
                 multiview: None,
             });
-        let subpixel_render_pipeline =
+        let subpixel_r_render_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Subpixel Render Pipeline"),
+                label: Some("Subpixel R Render Pipeline"),
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &shader,
-                    entry_point: "vs_main",
+                    entry_point: "subpixel_r_vs_main",
                     buffers: &[Vertex::desc()],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: "subpixel_fs_main",
+                    entry_point: "subpixel_r_fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: config.format,
                         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
+                        write_mask: wgpu::ColorWrites::RED | wgpu::ColorWrites::ALPHA,
+                    })],
+                }),
+                primitive: primitive_state,
+                depth_stencil: Some(depth_stencil_state.clone()),
+                multisample: multisample_state,
+                multiview: None,
+            });
+        let subpixel_g_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Subpixel G Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "subpixel_g_vs_main",
+                    buffers: &[Vertex::desc()],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "subpixel_g_fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::GREEN | wgpu::ColorWrites::ALPHA,
+                    })],
+                }),
+                primitive: primitive_state,
+                depth_stencil: Some(depth_stencil_state.clone()),
+                multisample: multisample_state,
+                multiview: None,
+            });
+        let subpixel_b_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Subpixel B Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "subpixel_b_vs_main",
+                    buffers: &[Vertex::desc()],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "subpixel_b_fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::BLUE | wgpu::ColorWrites::ALPHA,
                     })],
                 }),
                 primitive: primitive_state,
@@ -269,7 +317,9 @@ impl WgpuContext {
             render_pipeline_layout,
             opaque_render_pipeline,
             transparent_render_pipeline,
-            subpixel_render_pipeline,
+            subpixel_r_render_pipeline,
+            subpixel_g_render_pipeline,
+            subpixel_b_render_pipeline,
             camera_uniform,
             camera_buffer,
             camera_bind_group,
@@ -386,6 +436,7 @@ impl WgpuContext {
                 render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             }
             //println!("....... >");
+            let mut current_pipeline = Pipeline::Opaque;
             for command in display_list.commands() {
                 //println!("{:?}", command);
                 match *command {
@@ -397,17 +448,28 @@ impl WgpuContext {
                         render_pass.set_bind_group(1, atlas_bind_group, &[]);
                     }
                     Command::Draw { start, count } => {
-                        render_pass.draw_indexed(start..(start + count), 0, 0..1);
+                        if matches!(current_pipeline, Pipeline::Subpixel) {
+                            render_pass.set_pipeline(&self.subpixel_r_render_pipeline);
+                            render_pass.draw_indexed(start..(start + count), 0, 0..1);
+                            render_pass.set_pipeline(&self.subpixel_g_render_pipeline);
+                            render_pass.draw_indexed(start..(start + count), 0, 0..1);
+                            render_pass.set_pipeline(&self.subpixel_b_render_pipeline);
+                            render_pass.draw_indexed(start..(start + count), 0, 0..1);
+                        } else {
+                            render_pass.draw_indexed(start..(start + count), 0, 0..1);
+                        }
                     }
                     Command::BindPipeline(pipeline) => match pipeline {
                         Pipeline::Opaque => {
+                            current_pipeline = Pipeline::Opaque;
                             render_pass.set_pipeline(&self.opaque_render_pipeline);
                         }
                         Pipeline::Transparent => {
+                            current_pipeline = Pipeline::Transparent;
                             render_pass.set_pipeline(&self.transparent_render_pipeline);
                         }
                         Pipeline::Subpixel => {
-                            render_pass.set_pipeline(&self.subpixel_render_pipeline);
+                            current_pipeline = Pipeline::Subpixel;
                         }
                     },
                 }

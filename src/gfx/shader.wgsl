@@ -50,7 +50,7 @@ fn subpixel_fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let mask = textureSample(t_diffuse, s_diffuse, in.uv);
 	let alpha = gamma_correct_subpx(color, mask);
 	// TODO: this feels a bit too generic, but since we don't have Dual Source Blending (at the time of writing) i'm not sure if there's a better way to do this.
-	let a = (alpha.r + alpha.g + alpha.b) / 3.;
+	let a = (mask.r + mask.g + mask.b) / 3.;
 	let rgb = color.rgb * alpha.rgb;
 	return vec4<f32>(rgb, a);
 }

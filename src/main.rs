@@ -32,7 +32,7 @@ fn main() {
         .build(&event_loop)
         .expect("failed to create window");
 
-    let mut wgpu = WgpuContext::new(&window);
+    let mut wgpu = WgpuContext::new(&window, color::WHITE);
 
     let mut fontsource = FontSource::new();
     let monospace_font = fontsource
@@ -96,7 +96,7 @@ fn main() {
                             compositor.add_image_rect(
                                 [ix, iy, entry.width as f32, entry.height as f32],
                                 0.01,
-                                color::BLACK,
+                                color::WHITE, // always needs to be white, unless you want to tint the image, which you probably don't want to do.
                                 tex_loc,
                             );
                         } else {

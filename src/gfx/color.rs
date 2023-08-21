@@ -249,7 +249,7 @@ impl Color {
     }
 
     /// Converts the byte color into a floating point representation.
-    pub fn to_rgba_f32(&self) -> [f32; 4] {
+    pub fn to_rgba_f32(self) -> [f32; 4] {
         let s = 1. / 255.;
         [
             self.r as f32 * s,
@@ -257,6 +257,23 @@ impl Color {
             self.b as f32 * s,
             self.a as f32 * s,
         ]
+    }
+
+    pub fn to_rgba_f64(self) -> [f64; 4] {
+        let s = 1. / 255.;
+        [
+            self.r as f64 * s,
+            self.g as f64 * s,
+            self.b as f64 * s,
+            self.a as f64 * s,
+        ]
+    }
+}
+
+impl From<Color> for wgpu::Color {
+    fn from(c: Color) -> Self {
+        let [r, g, b, a] = c.to_rgba_f64();
+        wgpu::Color { r, g, b, a }
     }
 }
 

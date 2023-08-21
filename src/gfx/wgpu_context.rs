@@ -2,6 +2,7 @@ use wgpu::util::DeviceExt;
 use winit::window::Window;
 
 use super::{
+    color::Color,
     compositor::{Command, DisplayList, Pipeline},
     image_cache::ImageCache,
     types::{CameraUniform, Vertex},
@@ -33,10 +34,11 @@ pub struct WgpuContext {
 
     pub vertex_buffer: Option<wgpu::Buffer>,
     pub index_buffer: Option<wgpu::Buffer>,
+    pub clear_color: wgpu::Color,
 }
 
 impl WgpuContext {
-    pub fn new(window: &Window) -> WgpuContext {
+    pub fn new(window: &Window, clear_color: Color) -> WgpuContext {
         let scale_factor = window.scale_factor() as f32;
         let size = dbg!(window.inner_size());
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -325,6 +327,7 @@ impl WgpuContext {
             camera_bind_group,
             vertex_buffer: None,
             index_buffer: None,
+            clear_color: clear_color.into(),
         }
     }
 
@@ -339,6 +342,10 @@ impl WgpuContext {
             bytemuck::cast_slice(&[self.camera_uniform]),
         );
         (self.depth_texture, self.depth_view) = create_depth_texture(&self.device, width, height);
+    }
+
+    pub fn set_clear_color(&mut self, color: Color) {
+        self.clear_color = color.into();
     }
 
     pub fn render(
@@ -403,12 +410,7 @@ impl WgpuContext {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 1.0,
-                            g: 1.0,
-                            b: 1.0,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.clear_color),
                         store: true,
                     },
                 })],

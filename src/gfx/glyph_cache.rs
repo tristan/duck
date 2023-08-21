@@ -114,6 +114,9 @@ impl<'a> GlyphCacheSession<'a> {
             let top = p.top;
             let width = p.width;
             let height = p.height;
+            if width == 0 || height == 0 {
+                return None;
+            }
             let is_bitmap = self.img.content == Content::Color;
             //dbg!(self.img.content);
             // let mut rgba8 = image::RgbaImage::new(width, height);

@@ -1,6 +1,8 @@
 use std::io;
 
-use crate::{layout::Layout, fonts::{Font, ShapeContext, ParseContext, Glyph}};
+use swash::text::{cluster::{Parser, Token, CharCluster, SourceRange}, Script};
+
+use crate::{layout::Layout, fonts::{Font, ShapeContext, Glyph}};
 
 pub struct Document {
     rope: ropey::Rope,
@@ -30,7 +32,6 @@ impl Document {
         &mut self,
         fonts: &[&Font],
         size: f32,
-        parse_context: &mut ParseContext,
     ) {
         if !self.is_dirty {
             // no need to do this again!
@@ -40,6 +41,7 @@ impl Document {
 
         let mut shapers = fonts.iter().copied().map(ShapeContext::new).collect::<Vec<_>>();
         let mut buf = String::with_capacity(1024);
+        let mut cluster = CharCluster::new();
         for (line_no, line) in self.rope.lines().enumerate() {
             // TODO: this should be par_iter()-able, but probably needs thread_local!
             // variables for ALL the things
@@ -48,11 +50,29 @@ impl Document {
             }
             //let mut is_ascii = Vec::with_capacity(line.len_chars());
             let mut doc_indices = Vec::with_capacity(line.len_chars());
-            for (cluster, i, j) in parse_context.segment_str(line, &mut buf) {
-                doc_indices.push((line_no, i, j));
-                //is_ascii.push(cluster.is_ascii());
+            let mut parser = Parser::new(
+                Script::Latin,
+                line.chars().map({
+                    let mut offset = 0usize;
+                    move |ch| {
+                        let len = ch.len_utf8();
+                        let current_offset = offset as u32;
+                        offset += len;
+                        Token {
+                            ch,
+                            offset: current_offset,
+                            len: len as u8,
+                            info: ch.into(),
+                            data: 0,
+                        }
+                    }
+                }),
+            );
+            while parser.next(&mut cluster) {
+                let SourceRange { start: i, end: j } = cluster.range();
+                doc_indices.push((line_no, i as usize, j as usize));
                 for shaper in shapers.iter_mut() {
-                    shaper.add_cluster(cluster);
+                    shaper.add_cluster(&cluster);
                 }
             }
             let shapes = shapers.iter_mut().map(|s| s.shape()).collect::<Vec<_>>();

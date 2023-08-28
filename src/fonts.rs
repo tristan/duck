@@ -12,11 +12,9 @@ use harfbuzz::sys::{
     hb_face_t, hb_font_create, hb_font_destroy, hb_font_get_ppem, hb_font_get_scale, hb_font_t,
     hb_shape, HB_BUFFER_CONTENT_TYPE_UNICODE,
 };
-use icu_provider_blob::BlobDataProvider;
-use icu_segmenter::GraphemeClusterSegmenter;
 use itertools::Itertools;
 use ropey::RopeSlice;
-use swash::FontRef;
+use swash::{FontRef, text::cluster::CharCluster, proxy::MetricsProxy};
 
 #[derive(Debug)]
 pub enum FontKitError {
@@ -46,10 +44,12 @@ impl From<font_kit::error::SelectionError> for FontKitError {
 
 pub struct Font {
     raw: Arc<Vec<u8>>,
+    index: usize,
     blob: harfbuzz::Blob<'static>,
     hb_face: *mut hb_face_t,
     hb_font: *mut hb_font_t,
     hb_buffer: *mut hb_buffer_t,
+    metrics: MetricsProxy,
 }
 
 impl Debug for Font {
@@ -78,6 +78,9 @@ pub struct Glyph {
 }
 
 impl Font {
+    pub fn fontref(&self) -> FontRef<'_> {
+        FontRef::from_index(&self.raw, self.index).unwrap()
+    }
     // pub fn render(&self, glyphs: &[Glyph]) {
     //     //let transform = Transform2F::default();
     //     for glyph in glyphs {
@@ -182,18 +185,19 @@ impl FontSource {
             let hb_buffer = hb_buffer_create();
             (face, hb_font, hb_buffer)
         };
+        let index = index as usize;
+        let fr = FontRef::from_index(&data, index).ok_or(font_kit::error::FontLoadingError::Parse)?;
+        let metrics = MetricsProxy::from_font(&fr);
         Ok(Font {
             raw: data,
+            index,
             hb_font,
             blob,
             hb_face,
             hb_buffer,
+            metrics,
         })
     }
-
-    // pub fn fontref(&self) -> FontRef<'_> {
-
-    // }
 }
 
 impl Default for FontSource {
@@ -224,9 +228,9 @@ impl<'a> ShapeContext<'a> {
         }
     }
 
-    pub fn add_cluster(&mut self, cluster: &str) {
-        cluster.chars().for_each(|c| {
-            let code_point: u32 = c.into();
+    pub fn add_cluster(&mut self, cluster: &CharCluster) {
+        cluster.chars().iter().for_each(|c| {
+            let code_point = c.ch as u32;
             unsafe { hb_buffer_add(self.hb_buffer, code_point, self.cluster_count) };
         });
         self.cluster_count += 1;
@@ -276,40 +280,5 @@ impl<'a> ShapeContext<'a> {
 impl<'a> Drop for ShapeContext<'a> {
     fn drop(&mut self) {
         unsafe { hb_buffer_destroy(self.hb_buffer) };
-    }
-}
-
-pub struct ParseContext {
-    blob_data_provider: BlobDataProvider,
-    segmenter: GraphemeClusterSegmenter,
-}
-
-impl ParseContext {
-    pub fn new() -> ParseContext {
-        let blob_data =
-            std::fs::read("icu_data.postcard").expect("Failed to read icu_data.postcard");
-        let blob_data_provider = BlobDataProvider::try_new_from_blob(blob_data.into_boxed_slice())
-            .expect("Failed to initialize Data Provider.");
-        let segmenter = GraphemeClusterSegmenter::try_new_with_buffer_provider(&blob_data_provider)
-            .expect("FAILED");
-        ParseContext {
-            blob_data_provider,
-            segmenter,
-        }
-    }
-
-    pub fn segment_str<'a, 'b: 'a>(
-        &'a self,
-        input: RopeSlice<'_>,
-        buf: &'b mut String,
-    ) -> impl Iterator<Item = (&'b str, usize, usize)> + 'a {
-        buf.clear();
-        for c in input.chars() {
-            buf.push(c);
-        }
-        self.segmenter
-            .segment_str(buf)
-            .tuple_windows()
-            .map(|(i, j)| (&buf[i..j], i, j))
     }
 }

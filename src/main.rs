@@ -4,7 +4,7 @@ mod gfx;
 mod layout;
 
 use document::Document;
-use fonts::{FontSource, ParseContext};
+use fonts::FontSource;
 use gfx::{
     color::{self, Color},
     compositor::Compositor,
@@ -45,7 +45,7 @@ fn main() {
         .expect("failed to load emoji font family");
     let mut compositor = Compositor::new();
     //let mut shape_context = ShapeContext::new();
-    let mut parse_context = ParseContext::new();
+    //let mut parse_context = ParseContext::new();
     let mut image_cache = ImageCache::new(wgpu.device.limits().max_texture_dimension_2d);
     //let mut glyph_cache = GlyphCache::new();
 
@@ -61,7 +61,7 @@ fn main() {
         &[&prefered_font, &default_monospace_font, &emoji_font],
         32. * scale, // TODO: if the scale changes we need to update things!
         //&mut shape_context,
-        &mut parse_context,
+        //&mut parse_context,
     );
     document.layout.finish();
     compositor.begin();

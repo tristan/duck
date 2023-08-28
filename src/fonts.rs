@@ -12,9 +12,7 @@ use harfbuzz::sys::{
     hb_face_t, hb_font_create, hb_font_destroy, hb_font_get_ppem, hb_font_get_scale, hb_font_t,
     hb_shape, HB_BUFFER_CONTENT_TYPE_UNICODE,
 };
-use itertools::Itertools;
-use ropey::RopeSlice;
-use swash::{FontRef, text::cluster::CharCluster, proxy::MetricsProxy};
+use swash::{FontRef, text::cluster::CharCluster, proxy::MetricsProxy, Metrics, CacheKey, shape::cluster::{Glyph, GlyphInfo}, GlyphId};
 
 #[derive(Debug)]
 pub enum FontKitError {
@@ -49,7 +47,9 @@ pub struct Font {
     hb_face: *mut hb_face_t,
     hb_font: *mut hb_font_t,
     hb_buffer: *mut hb_buffer_t,
-    metrics: MetricsProxy,
+    pub metrics: Metrics,
+    pub cache_key: CacheKey,
+    offset: u32,
 }
 
 impl Debug for Font {
@@ -68,18 +68,9 @@ impl Drop for Font {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Glyph {
-    pub id: u32,
-    pub x_offset: i32,
-    pub y_offset: i32,
-    pub x_advance: i32,
-    pub y_advance: i32,
-}
-
 impl Font {
     pub fn fontref(&self) -> FontRef<'_> {
-        FontRef::from_index(&self.raw, self.index).unwrap()
+        FontRef { data: &self.raw, offset: self.offset, key: self.cache_key }
     }
     // pub fn render(&self, glyphs: &[Glyph]) {
     //     //let transform = Transform2F::default();
@@ -170,10 +161,7 @@ impl FontSource {
         let (hb_face, hb_font, hb_buffer) = unsafe {
             let face = hb_face_create(blob.as_raw(), index);
             let hb_font = hb_font_create(face);
-            let mut x_scale: i32 = 0;
-            let mut y_scale: i32 = 0;
-            hb_font_get_scale(hb_font, &mut x_scale, &mut y_scale);
-            dbg!(x_scale, y_scale);
+            //dbg!(x_scale, y_scale);
             // x_scale *= 2;
             // y_scale *= 2;
             // hb_font_set_scale(hb_font, x_scale, y_scale);
@@ -187,7 +175,10 @@ impl FontSource {
         };
         let index = index as usize;
         let fr = FontRef::from_index(&data, index).ok_or(font_kit::error::FontLoadingError::Parse)?;
-        let metrics = MetricsProxy::from_font(&fr);
+        // TODO: will we ever need to handle coords?
+        let metrics = MetricsProxy::from_font(&fr).materialize_metrics(&fr, &[]);
+        let cache_key = fr.key;
+        let offset = fr.offset;
         Ok(Font {
             raw: data,
             index,
@@ -196,6 +187,8 @@ impl FontSource {
             hb_face,
             hb_buffer,
             metrics,
+            cache_key,
+            offset,
         })
     }
 }
@@ -241,7 +234,11 @@ impl<'a> ShapeContext<'a> {
         for _ in 0..(self.cluster_count) {
             res.push(Vec::with_capacity(1));
         }
+        let scale = 32.;
+        let mut x_scale: i32 = 0;
+        let mut y_scale: i32 = 0;
         unsafe {
+            hb_font_get_scale(self.font.hb_font, &mut x_scale, &mut y_scale);
             hb_buffer_guess_segment_properties(self.hb_buffer);
             hb_shape(self.font.hb_font, self.hb_buffer, null(), 0);
             let len = hb_buffer_get_length(self.hb_buffer) as usize;
@@ -255,12 +252,16 @@ impl<'a> ShapeContext<'a> {
                     panic!("more clusters than prepared for");
                 }
                 let pos = *pos.add(offset);
+                let x = pos.x_offset as f32 / x_scale as f32 * scale;
+                let y = pos.x_offset as f32 / y_scale as f32 * scale;
+                let advance = pos.x_advance as f32 / x_scale as f32 * scale;
                 let g = Glyph {
-                    id: codepoint,
-                    x_offset: pos.x_offset,
-                    x_advance: pos.x_advance,
-                    y_offset: pos.y_offset,
-                    y_advance: pos.y_advance,
+                    id: codepoint as GlyphId,
+                    x,
+                    advance,
+                    y,
+                    info: GlyphInfo(0),
+                    data: 0,
                 };
                 res[cluster as usize].push(g);
             }

@@ -1,11 +1,6 @@
 use std::ops::Range;
 
-use swash::{
-    shape::{Shaper},
-    FontRef, Metrics,
-};
-
-use crate::fonts::{Font, Glyph};
+use swash::{Metrics, shape::cluster::Glyph};
 
 //use super::fonts::FontCacheKey;
 
@@ -13,9 +8,10 @@ use crate::fonts::{Font, Glyph};
 pub struct Run {
     pub font_index: usize,
     pub glyphs: Vec<Glyph>,
-    pub coords: Vec<i16>,
     pub size: f32,
     pub metrics: Metrics,
+    pub range: Range<usize>,
+    pub coords: Vec<i16>,
 }
 
 #[derive(Default, Debug)]
@@ -54,35 +50,24 @@ impl Layout {
         &mut self,
         line_no: usize,
         font_index: usize,
-        doc_byte_range: Range<usize>,
-        glyphs: &[Glyph],
+        range: Range<usize>,
+        glyphs: Vec<Glyph>,
+        size: f32,
+        metrics: Metrics,
     ) {
-        println!("RUN: {} {} {:?} {:?}", line_no, font_index, doc_byte_range, glyphs);
-        // let mut glyphs = Vec::new();
-        // let metrics = shaper.metrics();
-        // let coords = shaper.normalized_coords().to_vec();
-        // {
-        //     let glyphs = &mut glyphs;
-        //     shaper.shape_with(move |c| {
-        //         for g in c.glyphs {
-        //             glyphs.push(*g);
-        //         }
-        //     });
-        // }
-        // if glyphs.is_empty() {
-        //     return;
-        // }
-        // while self.lines.len() <= line_no {
-        //     self.lines.push(Line::default());
-        // }
-        // let line = &mut self.lines[line_no];
-        // line.runs.push(Run {
-        //     font: (),
-        //     glyphs,
-        //     coords,
-        //     size,
-        //     metrics,
-        // });
+        println!("RUN: {} {} {:?} {:?}", line_no, font_index, range, glyphs);
+        while self.lines.len() <= line_no {
+            self.lines.push(Line::default());
+        }
+        let line = &mut self.lines[line_no];
+        line.runs.push(Run {
+            font_index,
+            glyphs,
+            size,
+            metrics: metrics.scale(size),
+            range,
+            coords: Vec::new(),
+        });
     }
 
     pub fn finish(&mut self) {

@@ -48,7 +48,7 @@ impl GlyphCache {
         &'a mut self,
         wgpu: &'a WgpuContext,
         image_cache: &'a mut ImageCache,
-        fontref: &Font,
+        fontref: FontRef<'a>,
         size: f32,
         coords: &[i16],
     ) -> GlyphCacheSession<'a> {

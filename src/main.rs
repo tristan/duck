@@ -9,7 +9,7 @@ use gfx::{
     color::{self, Color},
     compositor::Compositor,
     image_cache::ImageCache,
-    types::Rect,
+    types::Rect, glyph_cache::GlyphCache,
 };
 use winit::{
     event::{Event, WindowEvent},
@@ -18,7 +18,7 @@ use winit::{
 };
 
 use crate::{
-    fonts::{FontFamily, ShapeContext},
+    fonts::{FontFamily},
     gfx::{wgpu_context::WgpuContext},
 };
 
@@ -47,7 +47,7 @@ fn main() {
     //let mut shape_context = ShapeContext::new();
     //let mut parse_context = ParseContext::new();
     let mut image_cache = ImageCache::new(wgpu.device.limits().max_texture_dimension_2d);
-    //let mut glyph_cache = GlyphCache::new();
+    let mut glyph_cache = GlyphCache::new();
 
     //let document = Document::from_reader(std::fs::File::open("../../v0/emoji-zwj-sequences.txt").unwrap()).unwrap();
     //let mut document = Document::from_str("Simple String!");
@@ -56,9 +56,10 @@ fn main() {
     //let mut document = Document::from_str("🦆🦆🦆🦆🦆😶‍🌫️");
     //let mut document = Document::from_str("#️⃣");
 
+    let fonts = [&prefered_font, &default_monospace_font, &emoji_font];
     let scale = window.scale_factor() as f32;
     document.parse(
-        &[&prefered_font, &default_monospace_font, &emoji_font],
+        &fonts,
         32. * scale, // TODO: if the scale changes we need to update things!
         //&mut shape_context,
         //&mut parse_context,
@@ -74,42 +75,43 @@ fn main() {
         screen_size.width as f32 - margin,
         screen_size.height as f32 - margin,
     );
-    // for line in &document.layout.lines {
-    //     let baseline = line.above;
-    //     let mut px = buffer_window.x;
-    //     for run in &line.runs {
-    //         let font = run.font;
-    //         let mut session =
-    //             glyph_cache.session(&wgpu, &mut image_cache, font, run.size, &run.coords);
-    //         let py = baseline + buffer_window.y;
-    //         for g in &run.glyphs {
-    //             let gx = px + g.x;
-    //             let gy = py - g.y;
-    //             px += g.advance;
-    //             if let Some(entry) = session.get(g.id, gx, gy) {
-    //                 if let Some(tex_loc) = session.get_texture_location(entry.image_id) {
-    //                     let ix = (gx + subpx_bias.0).floor() + entry.left as f32;
-    //                     let iy = (gy + subpx_bias.1).floor() - entry.top as f32;
-    //                     if entry.is_bitmap {
-    //                         compositor.add_image_rect(
-    //                             [ix, iy, entry.width as f32, entry.height as f32],
-    //                             0.01,
-    //                             color::WHITE, // always needs to be white, unless you want to tint the image, which you probably don't want to do.
-    //                             tex_loc,
-    //                         );
-    //                     } else {
-    //                         compositor.add_subpixel_rect(
-    //                             [ix, iy, entry.width as f32, entry.height as f32],
-    //                             0.01,
-    //                             color::BLACK,
-    //                             tex_loc,
-    //                         );
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    for line in &document.layout.lines {
+        let baseline = line.above;
+        let mut px = buffer_window.x;
+        for run in &line.runs {
+            let font = fonts[run.font_index].fontref();
+            let mut session =
+                glyph_cache.session(&wgpu, &mut image_cache, font, run.size, &run.coords);
+            let py = baseline + buffer_window.y;
+            //println!("{:?}", run.glyphs);
+            for g in &run.glyphs {
+                let gx = px + g.x;
+                let gy = py - g.y;
+                px += g.advance;
+                if let Some(entry) = session.get(g.id, gx, gy) {
+                    if let Some(tex_loc) = session.get_texture_location(entry.image_id) {
+                        let ix = (gx + subpx_bias.0).floor() + entry.left as f32;
+                        let iy = (gy + subpx_bias.1).floor() - entry.top as f32;
+                        if entry.is_bitmap {
+                            compositor.add_image_rect(
+                                [ix, iy, entry.width as f32, entry.height as f32],
+                                0.01,
+                                color::WHITE, // always needs to be white, unless you want to tint the image, which you probably don't want to do.
+                                tex_loc,
+                            );
+                        } else {
+                            compositor.add_subpixel_rect(
+                                [ix, iy, entry.width as f32, entry.height as f32],
+                                0.01,
+                                color::BLACK,
+                                tex_loc,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // compositor.draw_rect([0.0f32, 0.0, 200.0, 200.0], 0.1, Color::new(255, 0, 0, 128));
     // compositor.draw_rect(

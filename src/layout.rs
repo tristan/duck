@@ -1,13 +1,17 @@
+use std::ops::Range;
+
 use swash::{
-    shape::{cluster::Glyph, Shaper},
+    shape::{Shaper},
     FontRef, Metrics,
 };
 
-use super::fonts::FontCacheKey;
+use crate::fonts::{Font, Glyph};
+
+//use super::fonts::FontCacheKey;
 
 #[derive(Debug)]
 pub struct Run {
-    pub font: FontCacheKey,
+    pub font_index: usize,
     pub glyphs: Vec<Glyph>,
     pub coords: Vec<i16>,
     pub size: f32,
@@ -49,35 +53,36 @@ impl Layout {
     pub fn push_run(
         &mut self,
         line_no: usize,
-        shaper: Shaper<'_>,
-        fontref: &FontRef<'_>,
-        size: f32,
+        font_index: usize,
+        doc_byte_range: Range<usize>,
+        glyphs: &[Glyph],
     ) {
-        let mut glyphs = Vec::new();
-        let metrics = shaper.metrics();
-        let coords = shaper.normalized_coords().to_vec();
-        {
-            let glyphs = &mut glyphs;
-            shaper.shape_with(move |c| {
-                for g in c.glyphs {
-                    glyphs.push(*g);
-                }
-            });
-        }
-        if glyphs.is_empty() {
-            return;
-        }
-        while self.lines.len() <= line_no {
-            self.lines.push(Line::default());
-        }
-        let line = &mut self.lines[line_no];
-        line.runs.push(Run {
-            font: fontref.key,
-            glyphs,
-            coords,
-            size,
-            metrics,
-        });
+        println!("RUN: {} {} {:?} {:?}", line_no, font_index, doc_byte_range, glyphs);
+        // let mut glyphs = Vec::new();
+        // let metrics = shaper.metrics();
+        // let coords = shaper.normalized_coords().to_vec();
+        // {
+        //     let glyphs = &mut glyphs;
+        //     shaper.shape_with(move |c| {
+        //         for g in c.glyphs {
+        //             glyphs.push(*g);
+        //         }
+        //     });
+        // }
+        // if glyphs.is_empty() {
+        //     return;
+        // }
+        // while self.lines.len() <= line_no {
+        //     self.lines.push(Line::default());
+        // }
+        // let line = &mut self.lines[line_no];
+        // line.runs.push(Run {
+        //     font: (),
+        //     glyphs,
+        //     coords,
+        //     size,
+        //     metrics,
+        // });
     }
 
     pub fn finish(&mut self) {

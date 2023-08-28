@@ -82,7 +82,7 @@ impl Layout {
             }
             // eh???
             line.ascent = line.ascent.round();
-            line.descent = line.ascent.round();
+            line.descent = line.descent.round();
             line.leading = (line.leading * 0.5).round() * 2.;
             line.below = (line.descent + line.leading * 0.5).round();
             // baseline = y + above

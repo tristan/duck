@@ -43,6 +43,9 @@ fn main() {
     let emoji_font = fontsource
         .load(&[FontFamily::Title("Noto Color Emoji".to_string())])
         .expect("failed to load emoji font family");
+    let jp_font = fontsource
+        .load(&[FontFamily::Title("VL Gothic".to_string())])
+        .expect("failed to load emoji font family");
     let mut compositor = Compositor::new();
     //let mut shape_context = ShapeContext::new();
     //let mut parse_context = ParseContext::new();
@@ -52,11 +55,12 @@ fn main() {
     //let document = Document::from_reader(std::fs::File::open("../../v0/emoji-zwj-sequences.txt").unwrap()).unwrap();
     //let mut document = Document::from_str("Simple String!");
     // TODO: fix rendering extra empty character after 0 and * (and similar) emojis
-    let mut document = Document::from_str("y̆es 0️<=1(*️)2*3*#️⃣ 🧙🏻‍♂️⭐😶‍🌫️ *️*️*️ + 🦆&🙂😶");
+    let s = "y̆es 0️<=1(*️)2*3*#️⃣ 🧙🏻‍♂️⭐😶‍🌫️ *️*️*️ + 🦆&🙂😶\n🦆🦆🦆🦆🦆😶‍🌫️\ra\r\r\nSimple String!\n#️⃣#️⃣#️⃣#️⃣#️⃣\n\nHI!\tHi!\thi!\nこんにちは🇯🇵";
+    let mut document = Document::from_str(s);
     //let mut document = Document::from_str("🦆🦆🦆🦆🦆😶‍🌫️");
     //let mut document = Document::from_str("#️⃣");
 
-    let fonts = [&prefered_font, &default_monospace_font, &emoji_font];
+    let fonts = [&prefered_font, &default_monospace_font, &emoji_font, &jp_font];
     let scale = window.scale_factor() as f32;
     document.parse(
         &fonts,
@@ -75,6 +79,7 @@ fn main() {
         screen_size.width as f32 - margin,
         screen_size.height as f32 - margin,
     );
+    let mut y = buffer_window.y;
     for line in &document.layout.lines {
         let baseline = line.above;
         let mut px = buffer_window.x;
@@ -82,7 +87,7 @@ fn main() {
             let font = fonts[run.font_index].fontref();
             let mut session =
                 glyph_cache.session(&wgpu, &mut image_cache, font, run.size, &run.coords);
-            let py = baseline + buffer_window.y;
+            let py = baseline + y;
             //println!("{:?}", run.glyphs);
             for g in &run.glyphs {
                 let gx = px + g.x;
@@ -111,6 +116,7 @@ fn main() {
                 }
             }
         }
+        y += line.above + line.below;
     }
 
     // compositor.draw_rect([0.0f32, 0.0, 200.0, 200.0], 0.1, Color::new(255, 0, 0, 128));

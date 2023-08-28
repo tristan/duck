@@ -41,17 +41,22 @@ impl Document {
 
         let mut shapers = fonts.iter().copied().map(ShapeContext::new).collect::<Vec<_>>();
         let mut cluster = CharCluster::new();
-        for (line_no, line) in self.rope.lines().enumerate() {
+        let mut line_no = 1;
+        for line in self.rope.lines() {
             // TODO: this should be par_iter()-able, but probably needs thread_local!
             // variables for ALL the things
             for shaper in shapers.iter_mut() {
                 shaper.reset();
             }
-            //let mut is_ascii = Vec::with_capacity(line.len_chars());
             let mut doc_indices = Vec::with_capacity(line.len_chars());
+            // TODO: things are a bit messy now with respect to \r\r\r\n combinations
+            // we're purposly ignoring \r, but ropey splits lines for each extra
+            // \r in an \r\r\r(etc)\n block, which is arguably the right thing to do
+            // but not how emacs does it
+            let has_linebreak = line.char(line.len_chars() - 1) == '\n';
             let mut parser = Parser::new(
                 Script::Latin,
-                line.chars().map({
+                line.chars().filter(|&c| c != '\r' && c != '\n').map({
                     let mut offset = 0usize;
                     move |ch| {
                         let len = ch.len_utf8();
@@ -117,6 +122,10 @@ impl Document {
 
             if !glyphs.is_empty() {
                 self.layout.push_run(line_no, prev_font_index, prev_range_start..prev_range_end, glyphs, size, fonts[prev_font_index].metrics);
+            }
+            if has_linebreak {
+                line_no += 1;
+                // TODO: indicate to the layout that there is a linebreak (so we can display the cursor at the right place (and show symbols if that's a mode?)?)
             }
         }
         self.is_dirty = false;
